@@ -46,15 +46,15 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      accounts: accounts.map((a) => ({
+      accounts: accounts.map((a: typeof accounts[number]) => ({
         ...a,
         accountNumber: `****${a.accountNumber.slice(-4)}`,
       })),
       summary: {
         totalAccounts: accounts.length,
-        activeAccounts: accounts.filter((a) => a.isActive).length,
+        activeAccounts: accounts.filter((a: typeof accounts[number]) => a.isActive).length,
         balanceByCurrency: Object.fromEntries(
-          balanceByCurrency.map((b) => [b.currency, Number(b._sum.balance)])
+          balanceByCurrency.map((b: typeof balanceByCurrency[number]) => [b.currency, Number(b._sum.balance)])
         ),
       },
     });
