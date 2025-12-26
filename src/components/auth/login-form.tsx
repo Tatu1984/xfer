@@ -176,28 +176,24 @@ export function LoginForm() {
 
         <div className="w-full border-t pt-4">
           <p className="text-xs font-medium text-muted-foreground mb-2 text-center">
-            Demo Credentials
+            Demo Credentials (Password: Password123!)
           </p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="bg-muted p-2 rounded">
               <p className="font-medium">Super Admin</p>
-              <p className="text-muted-foreground">admin@xfer.com</p>
-              <p className="text-muted-foreground">password123</p>
-            </div>
-            <div className="bg-muted p-2 rounded">
-              <p className="font-medium">Vendor</p>
-              <p className="text-muted-foreground">vendor@test.com</p>
-              <p className="text-muted-foreground">password123</p>
-            </div>
-            <div className="bg-muted p-2 rounded">
-              <p className="font-medium">User</p>
-              <p className="text-muted-foreground">user@test.com</p>
-              <p className="text-muted-foreground">password123</p>
+              <p className="text-muted-foreground">superadmin@xfer.com</p>
             </div>
             <div className="bg-muted p-2 rounded">
               <p className="font-medium">Admin</p>
-              <p className="text-muted-foreground">admin@test.com</p>
-              <p className="text-muted-foreground">password123</p>
+              <p className="text-muted-foreground">admin@xfer.com</p>
+            </div>
+            <div className="bg-muted p-2 rounded">
+              <p className="font-medium">Vendor</p>
+              <p className="text-muted-foreground">vendor@xfer.com</p>
+            </div>
+            <div className="bg-muted p-2 rounded">
+              <p className="font-medium">User</p>
+              <p className="text-muted-foreground">user@xfer.com</p>
             </div>
           </div>
         </div>
