@@ -66,8 +66,8 @@ export function LoginForm() {
         return;
       }
 
-      router.push(callbackUrl);
-      router.refresh();
+      // Use window.location for a full page reload to ensure session is picked up
+      window.location.href = callbackUrl === "/dashboard" ? "/" : callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
     }
