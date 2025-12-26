@@ -307,7 +307,7 @@ async function getTransactionAnalytics(
       count: s._count,
       volume: Number(s._sum.amount || 0),
     })),
-    paymentMethodBreakdown: Object.values(byPaymentMethod).map((p) => ({
+    paymentMethodBreakdown: (Object.values(byPaymentMethod) as { type: string; count: number; volume: number }[]).map((p) => ({
       method: p.type,
       count: p.count,
       volume: p.volume,
