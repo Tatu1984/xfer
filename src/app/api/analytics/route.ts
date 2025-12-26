@@ -557,7 +557,7 @@ async function getProductAnalytics(
     {} as Record<string, { productId: string; name: string; quantity: number; revenue: number }>
   );
 
-  const sortedProducts = Object.values(productSales).sort((a, b) => b.revenue - a.revenue);
+  const sortedProducts = (Object.values(productSales) as { productId: string; name: string; quantity: number; revenue: number }[]).sort((a, b) => b.revenue - a.revenue);
 
   // Calculate totals from aggregated product sales
   const totalSales = sortedProducts.reduce((sum, p) => sum + p.revenue, 0);
@@ -602,7 +602,7 @@ async function getGeographyAnalytics(userId: string, startDate: Date, endDate: D
     {} as Record<string, { country: string; count: number; volume: number }>
   );
 
-  const sortedCountries = Object.values(byCountry).sort((a, b) => b.volume - a.volume);
+  const sortedCountries = (Object.values(byCountry) as { country: string; count: number; volume: number }[]).sort((a, b) => b.volume - a.volume);
 
   return NextResponse.json({
     period: { start: startDate.toISOString(), end: endDate.toISOString() },
