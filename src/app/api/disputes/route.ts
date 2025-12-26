@@ -365,7 +365,7 @@ export async function PATCH(request: NextRequest) {
       // TODO: Process refund if buyer_favor and refundAmount > 0
 
       // Notify both parties
-      const notifications = [];
+      const notifications: { userId: string; type: string; title: string; message: string }[] = [];
       if (dispute.createdById) {
         notifications.push({
           userId: dispute.createdById,

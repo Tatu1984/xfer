@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     // Deduplicate by receiver ID and keep only the most recent
     const seenIds = new Set<string>();
-    const uniqueRecipients = [];
+    const uniqueRecipients: { id: string; email: string; name: string; avatar: string | null }[] = [];
 
     for (const tx of recentTransactions) {
       if (tx.receiverId && tx.receiver && !seenIds.has(tx.receiverId)) {

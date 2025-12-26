@@ -81,7 +81,7 @@ export async function GET(
     }
 
     // If resolvedBy is set, fetch the resolver user info
-    let resolvedByUser = null;
+    let resolvedByUser: { id: string; email: string; displayName: string | null } | null = null;
     if (dispute.resolvedBy) {
       resolvedByUser = await prisma.user.findUnique({
         where: { id: dispute.resolvedBy },
