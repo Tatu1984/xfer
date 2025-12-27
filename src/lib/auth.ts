@@ -38,6 +38,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
     maxAge: 24 * 60 * 60,
   },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+  },
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",
@@ -110,10 +121,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      console.log("[Auth] JWT callback called, user:", user ? user.email : "none");
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.status = user.status;
+        console.log("[Auth] JWT token updated with user data");
       }
       return token;
     },
