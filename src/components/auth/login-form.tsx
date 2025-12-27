@@ -55,12 +55,25 @@ export function LoginForm() {
     setError(null);
 
     try {
-      // Use redirect: true to let NextAuth handle the redirect
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
-        redirectTo: "/",
+        redirect: false,
+        callbackUrl: "/",
       });
+
+      console.log("SignIn result:", result);
+
+      if (result?.error) {
+        setError("Invalid email or password");
+        return;
+      }
+
+      if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        window.location.href = "/";
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Invalid email or password");
