@@ -1,5 +1,4 @@
 import NextAuth from "next-auth";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
@@ -36,7 +35,7 @@ declare module "@auth/core/jwt" {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
   trustHost: true,
-  adapter: PrismaAdapter(prisma) as never,
+  // Note: Not using adapter with credentials provider + JWT strategy
   session: {
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours
