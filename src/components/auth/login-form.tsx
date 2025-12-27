@@ -55,20 +55,34 @@ export function LoginForm() {
     setError(null);
 
     try {
+      console.log("Attempting login with:", data.email);
+
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
         redirect: false,
       });
 
-      if (result?.error) {
-        setError(result.error);
+      console.log("SignIn result:", result);
+
+      if (!result) {
+        setError("No response from server. Please try again.");
         return;
       }
 
-      // Use window.location for a full page reload to ensure session is picked up
-      window.location.href = callbackUrl === "/dashboard" ? "/" : callbackUrl;
-    } catch {
+      if (result.error) {
+        setError(result.error === "CredentialsSignin" ? "Invalid email or password" : result.error);
+        return;
+      }
+
+      if (result.ok) {
+        // Use window.location for a full page reload to ensure session is picked up
+        window.location.href = callbackUrl === "/dashboard" ? "/" : callbackUrl;
+      } else {
+        setError("Login failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
       setError("An unexpected error occurred. Please try again.");
     }
   };
