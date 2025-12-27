@@ -55,36 +55,15 @@ export function LoginForm() {
     setError(null);
 
     try {
-      console.log("Attempting login with:", data.email);
-
-      const result = await signIn("credentials", {
+      // Use redirect: true to let NextAuth handle the redirect
+      await signIn("credentials", {
         email: data.email,
         password: data.password,
-        redirect: false,
+        redirectTo: "/",
       });
-
-      console.log("SignIn result:", JSON.stringify(result, null, 2));
-
-      if (!result) {
-        setError("No response from server. Please try again.");
-        return;
-      }
-
-      if (result.error) {
-        setError(result.error === "CredentialsSignin" ? "Invalid email or password" : result.error);
-        return;
-      }
-
-      if (result.ok && !result.error) {
-        console.log("Login successful, redirecting to /");
-        // Always redirect to / which handles role-based routing
-        window.location.href = "/";
-      } else {
-        setError(result.error || "Login failed. Please try again.");
-      }
     } catch (err) {
       console.error("Login error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      setError("Invalid email or password");
     }
   };
 
