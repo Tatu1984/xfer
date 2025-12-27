@@ -57,16 +57,14 @@ export function LoginForm() {
     try {
       const result = await login(data.email, data.password);
 
-      if (!result.success) {
-        setError(result.error || "Invalid email or password");
-        return;
+      // If we get a result, it means there was an error
+      if (result?.error) {
+        setError(result.error);
       }
-
-      // Redirect to home which will handle role-based routing
-      window.location.href = "/";
+      // If successful, the server action will redirect
     } catch (err) {
+      // NEXT_REDIRECT throws an error, which is expected
       console.error("Login error:", err);
-      setError("Invalid email or password");
     }
   };
 

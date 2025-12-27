@@ -2,6 +2,7 @@
 
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 
 export async function login(email: string, password: string) {
   try {
@@ -10,16 +11,14 @@ export async function login(email: string, password: string) {
       password,
       redirect: false,
     });
-    return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return { success: false, error: "Invalid email or password" };
-        default:
-          return { success: false, error: "Something went wrong" };
-      }
+      return { success: false, error: "Invalid email or password" };
     }
+    // Re-throw other errors (like NEXT_REDIRECT)
     throw error;
   }
+
+  // If we get here, login was successful
+  redirect("/");
 }
