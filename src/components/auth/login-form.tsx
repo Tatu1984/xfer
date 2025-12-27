@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import { loginAndRedirect } from "@/app/auth/login/actions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,10 +54,30 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setError(null);
 
-    const result = await loginAndRedirect(data.email, data.password);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      });
 
-    if (result?.error) {
-      setError(result.error);
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error || "Invalid email or password");
+        return;
+      }
+
+      // Redirect to the appropriate dashboard
+      window.location.href = result.redirectTo || "/";
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An error occurred. Please try again.");
     }
   };
 

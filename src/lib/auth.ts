@@ -23,13 +23,6 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    role: Role;
-    status: AccountStatus;
-  }
-}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -101,9 +94,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.status = token.status;
+        session.user.id = token.id as string;
+        session.user.role = token.role as Role;
+        session.user.status = token.status as AccountStatus;
       }
       return session;
     },

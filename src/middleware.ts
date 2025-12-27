@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { jwtVerify } from "jose";
 
 // Define route patterns for each role
 const roleRoutes: Record<string, string[]> = {
@@ -44,6 +44,23 @@ function getRedirectForRole(role: string): string {
   }
 }
 
+interface TokenPayload {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
+async function verifyToken(token: string): Promise<TokenPayload | null> {
+  try {
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+    return payload as unknown as TokenPayload;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
@@ -65,17 +82,15 @@ export async function middleware(req: NextRequest) {
   // Check if it's an API route
   const isApiRoute = pathname.startsWith("/api");
 
-  // Get the session token
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-  });
+  // Get the auth token from cookie
+  const authToken = req.cookies.get("auth-token")?.value;
+  const token = authToken ? await verifyToken(authToken) : null;
 
   // Allow public routes
   if (isPublicRoute) {
     // Redirect authenticated users away from auth pages
     if (token && pathname.startsWith("/auth/") && pathname !== "/auth/logout") {
-      const redirectUrl = getRedirectForRole(token.role as string);
+      const redirectUrl = getRedirectForRole(token.role);
       return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin));
     }
     return NextResponse.next();
@@ -91,8 +106,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const userRole = token.role as string;
-  const userStatus = token.status as string;
+  const userRole = token.role;
+  const userStatus = token.status;
 
   // Check if account is active
   if (userStatus !== "ACTIVE" && userStatus !== "PENDING") {
