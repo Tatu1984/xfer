@@ -49,8 +49,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("[Auth] Authorize called with email:", credentials?.email);
+
         try {
           if (!credentials?.email || !credentials?.password) {
+            console.log("[Auth] Missing credentials");
             return null;
           }
 
@@ -58,7 +61,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             where: { email: credentials.email as string },
           });
 
+          console.log("[Auth] User found:", user ? "yes" : "no");
+
           if (!user || !user.passwordHash) {
+            console.log("[Auth] No user or no password hash");
             return null;
           }
 
@@ -67,19 +73,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             user.passwordHash
           );
 
+          console.log("[Auth] Password valid:", isPasswordValid);
+
           if (!isPasswordValid) {
             return null;
           }
 
           // Check if account is locked
           if (user.lockedUntil && user.lockedUntil > new Date()) {
+            console.log("[Auth] Account locked");
             return null;
           }
 
           // Check account status
           if (user.status === "SUSPENDED" || user.status === "CLOSED") {
+            console.log("[Auth] Account suspended/closed");
             return null;
           }
+
+          console.log("[Auth] Login successful for:", user.email);
 
           return {
             id: user.id,
@@ -90,7 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             status: user.status,
           };
         } catch (error) {
-          console.error("Auth error:", error);
+          console.error("[Auth] Error:", error);
           return null;
         }
       },
