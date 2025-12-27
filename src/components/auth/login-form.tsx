@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { login } from "@/app/auth/login/actions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,25 +55,15 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const result = await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-        callbackUrl: "/",
-      });
+      const result = await login(data.email, data.password);
 
-      console.log("SignIn result:", result);
-
-      if (result?.error) {
-        setError("Invalid email or password");
+      if (!result.success) {
+        setError(result.error || "Invalid email or password");
         return;
       }
 
-      if (result?.url) {
-        window.location.href = result.url;
-      } else {
-        window.location.href = "/";
-      }
+      // Redirect to home which will handle role-based routing
+      window.location.href = "/";
     } catch (err) {
       console.error("Login error:", err);
       setError("Invalid email or password");
