@@ -63,7 +63,7 @@ export function LoginForm() {
         redirect: false,
       });
 
-      console.log("SignIn result:", result);
+      console.log("SignIn result:", JSON.stringify(result, null, 2));
 
       if (!result) {
         setError("No response from server. Please try again.");
