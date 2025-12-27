@@ -75,11 +75,12 @@ export function LoginForm() {
         return;
       }
 
-      if (result.ok) {
-        // Use window.location for a full page reload to ensure session is picked up
-        window.location.href = callbackUrl === "/dashboard" ? "/" : callbackUrl;
+      if (result.ok && !result.error) {
+        console.log("Login successful, redirecting to /");
+        // Always redirect to / which handles role-based routing
+        window.location.href = "/";
       } else {
-        setError("Login failed. Please try again.");
+        setError(result.error || "Login failed. Please try again.");
       }
     } catch (err) {
       console.error("Login error:", err);
