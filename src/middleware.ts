@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-// Define route patterns for each role
+// Define route patterns for each role (dashboard pages)
 const roleRoutes: Record<string, string[]> = {
-  SUPER_ADMIN: ["/super-admin", "/admin", "/api/super-admin", "/api/admin"],
-  ADMIN: ["/admin", "/api/admin"],
-  VENDOR: ["/vendor", "/api/vendor"],
-  USER: ["/dashboard", "/api/user"],
+  SUPER_ADMIN: ["/super-admin", "/admin"],
+  ADMIN: ["/admin"],
+  VENDOR: ["/vendor"],
+  USER: ["/dashboard"],
+};
+
+// Role-restricted API routes (only specific roles can access)
+const roleRestrictedApiRoutes: Record<string, string[]> = {
+  SUPER_ADMIN: ["/api/super-admin", "/api/admin"],
+  ADMIN: ["/api/admin"],
+  VENDOR: ["/api/vendor", "/api/merchant"],
 };
 
 // Public routes that don't require authentication
@@ -20,6 +27,8 @@ const publicRoutes = [
   "/auth/verify-email",
   "/auth/error",
   "/api/auth",
+  "/api/health",
+  "/api/stripe/webhook",
 ];
 
 // Routes that require authentication but allow any role
@@ -28,6 +37,47 @@ const authenticatedRoutes = [
   "/profile",
   "/notifications",
   "/support",
+  "/checkout",
+];
+
+// API routes that any authenticated user can access
+const authenticatedApiRoutes = [
+  "/api/transactions",
+  "/api/wallet",
+  "/api/notifications",
+  "/api/disputes",
+  "/api/kyc",
+  "/api/kyb",
+  "/api/profile",
+  "/api/user",
+  "/api/payment-methods",
+  "/api/transfers",
+  "/api/funding",
+  "/api/withdraw",
+  "/api/mfa",
+  "/api/devices",
+  "/api/phone",
+  "/api/fx",
+  "/api/analytics",
+  "/api/api-keys",
+  "/api/webhooks",
+  "/api/developer",
+  "/api/scheduled-payments",
+  "/api/qr-payments",
+  "/api/exports",
+  "/api/gdpr",
+  "/api/tax-documents",
+  "/api/ratings",
+  "/api/refunds",
+  "/api/chargebacks",
+  "/api/batch-payouts",
+  "/api/compliance",
+  "/api/cart",
+  "/api/checkout",
+  "/api/chat",
+  "/api/knowledge",
+  "/api/oauth",
+  "/api/upload",
 ];
 
 function getRedirectForRole(role: string): string {
@@ -126,16 +176,37 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check role-based access
+  // Check authenticated API routes (any authenticated user can access)
+  const isAuthenticatedApiRoute = authenticatedApiRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  if (isAuthenticatedApiRoute) {
+    return NextResponse.next();
+  }
+
+  // Check role-restricted API routes
+  if (isApiRoute) {
+    const allowedApiRoutes = roleRestrictedApiRoutes[userRole] || [];
+    const hasApiAccess = allowedApiRoutes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+    if (hasApiAccess) {
+      return NextResponse.next();
+    }
+
+    // If it's an API route we don't recognize, deny access
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Check role-based dashboard access
   const allowedRoutes = roleRoutes[userRole] || [];
   const hasAccess = allowedRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
   if (!hasAccess) {
-    if (isApiRoute) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
     // Redirect to appropriate dashboard based on role
     const redirectUrl = getRedirectForRole(userRole);
     return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin));
