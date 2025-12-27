@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ArrowDownLeft, Copy, Link, Mail, Send, Clock, CheckCircle, XCircle, MoreHorizontal, Loader2, RefreshCw } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/providers/session-provider";
 
 interface MoneyRequest {
   id: string;

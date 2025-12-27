@@ -1,4 +1,4 @@
-import { auth } from "./auth";
+import { auth, type Session } from "./auth";
 import type { Role } from "@prisma/client";
 
 type AuthResult = {
@@ -42,6 +42,6 @@ export async function requireRole(roles: Role[]): Promise<AuthResult> {
   };
 }
 
-export async function getSession() {
+export async function getSession(): Promise<Session | null> {
   return auth();
 }

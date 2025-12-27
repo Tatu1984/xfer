@@ -1,8 +1,7 @@
-import { auth } from "@/lib/auth";
+import { auth, type Session } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
-import type { Session } from "next-auth";
 
 type AuthError = { error: string; status: number };
 type AuthSuccess = { session: Session; user: Session["user"] };

@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { User, Bell, Shield, Globe, CreditCard, Save, Upload, Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/providers/session-provider";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserSettings {
