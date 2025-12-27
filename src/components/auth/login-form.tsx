@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import { login } from "@/app/auth/login/actions";
+import { loginAndRedirect } from "@/app/auth/login/actions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +32,11 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-  const [error, setError] = useState<string | null>(null);
+  const urlError = searchParams.get("error");
+  const [error, setError] = useState<string | null>(
+    urlError === "CredentialsSignin" ? "Invalid email or password" : null
+  );
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -54,17 +55,10 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setError(null);
 
-    try {
-      const result = await login(data.email, data.password);
+    const result = await loginAndRedirect(data.email, data.password);
 
-      // If we get a result, it means there was an error
-      if (result?.error) {
-        setError(result.error);
-      }
-      // If successful, the server action will redirect
-    } catch (err) {
-      // NEXT_REDIRECT throws an error, which is expected
-      console.error("Login error:", err);
+    if (result?.error) {
+      setError(result.error);
     }
   };
 
