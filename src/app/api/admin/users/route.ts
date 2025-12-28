@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
   return successResponse({
     users: users.map((user) => ({
       ...user,
+      kycStatus: user.kycVerification?.status || "NOT_STARTED",
       walletBalance: user.wallets[0] ? Number(user.wallets[0].balance) : 0,
       walletCurrency: user.wallets[0]?.currency || "USD",
       transactionCount: user._count.sentTransactions,

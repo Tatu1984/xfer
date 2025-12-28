@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-utils";
+import { requireAuth, requireRole } from "@/lib/auth-utils";
 import {
   exportTransactions,
   exportDisputes,
@@ -8,6 +8,9 @@ import {
   exportCustomers,
   exportOrders,
   exportTaxReport,
+  exportUsers,
+  exportSettlements,
+  exportComplianceAlerts,
   ExportOptions,
 } from "@/lib/export";
 
@@ -104,6 +107,31 @@ export async function GET(request: NextRequest) {
           );
         }
         result = await exportTaxReport(userId, parseInt(year));
+        break;
+
+      case "users":
+        // Admin only
+        const adminCheck = await requireRole(["SUPER_ADMIN", "ADMIN"]);
+        if ("error" in adminCheck) {
+          return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        }
+        result = await exportUsers(options);
+        break;
+
+      case "settlements":
+        const settlementCheck = await requireRole(["SUPER_ADMIN", "ADMIN"]);
+        if ("error" in settlementCheck) {
+          return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        }
+        result = await exportSettlements(options);
+        break;
+
+      case "compliance":
+        const complianceCheck = await requireRole(["SUPER_ADMIN", "ADMIN"]);
+        if ("error" in complianceCheck) {
+          return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        }
+        result = await exportComplianceAlerts(options);
         break;
 
       default:
