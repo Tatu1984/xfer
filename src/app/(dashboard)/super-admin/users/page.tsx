@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 interface User {
   id: string;
@@ -110,10 +111,11 @@ export default function UsersPage() {
   const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
   const [actionDialog, setActionDialog] = useState<{
     open: boolean;
-    type: "role" | "status" | null;
+    type: "role" | "status" | "details" | null;
     user: User | null;
   }>({ open: false, type: null, user: null });
   const [actionLoading, setActionLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -161,12 +163,41 @@ export default function UsersPage() {
       }
 
       setActionDialog({ open: false, type: null, user: null });
+      toast.success("User updated successfully");
       fetchUsers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update user");
+      toast.error(err instanceof Error ? err.message : "Failed to update user");
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await fetch("/api/exports?type=users&format=csv");
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `users-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Export downloaded successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export users");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleSendEmail = (user: User) => {
+    window.location.href = `mailto:${user.email}`;
   };
 
   const columns: ColumnDef<User>[] = [
@@ -317,11 +348,11 @@ export default function UsersPage() {
               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.id)}>
                 Copy User ID
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActionDialog({ open: true, type: "details", user })}>
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSendEmail(user)}>
                 <Mail className="mr-2 h-4 w-4" />
                 Send Email
               </DropdownMenuItem>
@@ -385,8 +416,12 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            {exporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
             Export
           </Button>
         </div>
@@ -486,6 +521,69 @@ export default function UsersPage() {
               Cancel
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Details Dialog */}
+      <Dialog
+        open={actionDialog.open && actionDialog.type === "details"}
+        onOpenChange={(open) => !open && setActionDialog({ open: false, type: null, user: null })}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              Account information for {actionDialog.user?.displayName || actionDialog.user?.email}
+            </DialogDescription>
+          </DialogHeader>
+          {actionDialog.user && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium">{actionDialog.user.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={statusColors[actionDialog.user.status]}>
+                    {actionDialog.user.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Role</p>
+                  <Badge className={roleColors[actionDialog.user.role]}>
+                    {actionDialog.user.role.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">KYC Status</p>
+                  <Badge className={kycColors[actionDialog.user.kycStatus] || "bg-gray-100"}>
+                    {actionDialog.user.kycStatus.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Balance</p>
+                  <p className="font-medium">{formatCurrency(actionDialog.user.walletBalance)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Transactions</p>
+                  <p className="font-medium">{actionDialog.user.transactionCount}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Joined</p>
+                  <p className="font-medium">{new Date(actionDialog.user.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Login</p>
+                  <p className="font-medium">
+                    {actionDialog.user.lastLoginAt
+                      ? new Date(actionDialog.user.lastLoginAt).toLocaleDateString()
+                      : "Never"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

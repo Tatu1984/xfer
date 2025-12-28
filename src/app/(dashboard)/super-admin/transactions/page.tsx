@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,76 +20,114 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Download, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Search, Download, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Loader2, MoreHorizontal, Eye, Ban } from "lucide-react";
+import { toast } from "sonner";
 
-const transactions = [
-  {
-    id: "TXN001",
-    type: "TRANSFER",
-    sender: "john@example.com",
-    receiver: "jane@example.com",
-    amount: 250.00,
-    currency: "USD",
-    status: "COMPLETED",
-    fee: 2.50,
-    createdAt: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "TXN002",
-    type: "DEPOSIT",
-    sender: "Bank Account ****1234",
-    receiver: "mike@example.com",
-    amount: 1000.00,
-    currency: "USD",
-    status: "COMPLETED",
-    fee: 0,
-    createdAt: "2024-01-15T09:15:00Z",
-  },
-  {
-    id: "TXN003",
-    type: "WITHDRAWAL",
-    sender: "sarah@example.com",
-    receiver: "Bank Account ****5678",
-    amount: 500.00,
-    currency: "USD",
-    status: "PENDING",
-    fee: 1.50,
-    createdAt: "2024-01-15T08:45:00Z",
-  },
-  {
-    id: "TXN004",
-    type: "PAYMENT",
-    sender: "customer@example.com",
-    receiver: "Tech Solutions Inc",
-    amount: 89.99,
-    currency: "USD",
-    status: "COMPLETED",
-    fee: 2.70,
-    createdAt: "2024-01-14T16:20:00Z",
-  },
-  {
-    id: "TXN005",
-    type: "REFUND",
-    sender: "Fashion Store",
-    receiver: "buyer@example.com",
-    amount: 45.00,
-    currency: "USD",
-    status: "COMPLETED",
-    fee: 0,
-    createdAt: "2024-01-14T14:00:00Z",
-  },
-];
+interface Transaction {
+  id: string;
+  referenceId: string;
+  type: string;
+  sender: { email: string; displayName: string } | null;
+  receiver: { email: string; displayName: string } | null;
+  amount: number;
+  currency: string;
+  status: string;
+  fee: number;
+  description: string | null;
+  createdAt: string;
+}
 
 export default function SuperAdminTransactionsPage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [exporting, setExporting] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [stats, setStats] = useState({
+    totalVolume: 0,
+    transactionCount: 0,
+    totalFees: 0,
+    pendingCount: 0,
+  });
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const response = await fetch("/api/admin/transactions?limit=100");
+      if (response.ok) {
+        const data = await response.json();
+        setTransactions(data.transactions || []);
+
+        // Calculate stats
+        const txns = data.transactions || [];
+        setStats({
+          totalVolume: txns.reduce((sum: number, t: Transaction) => sum + Number(t.amount), 0),
+          transactionCount: txns.length,
+          totalFees: txns.reduce((sum: number, t: Transaction) => sum + Number(t.fee || 0), 0),
+          pendingCount: txns.filter((t: Transaction) => t.status === "PENDING").length,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch transactions:", error);
+      toast.error("Failed to load transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await fetch("/api/exports?type=transactions&format=csv");
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `all-transactions-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Export downloaded successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export transactions");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleViewDetails = (txn: Transaction) => {
+    setSelectedTransaction(txn);
+    setDetailsOpen(true);
+  };
 
   const filteredTransactions = transactions.filter((txn) => {
     const matchesSearch =
-      txn.id.toLowerCase().includes(search.toLowerCase()) ||
-      txn.sender.toLowerCase().includes(search.toLowerCase()) ||
-      txn.receiver.toLowerCase().includes(search.toLowerCase());
+      txn.referenceId.toLowerCase().includes(search.toLowerCase()) ||
+      (txn.sender?.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (txn.receiver?.email || "").toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || txn.status === statusFilter;
     const matchesType = typeFilter === "all" || txn.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
@@ -105,13 +143,24 @@ export default function SuperAdminTransactionsPage() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "DEPOSIT":
+      case "TRANSFER_IN":
         return <ArrowDownLeft className="h-4 w-4 text-green-500" />;
       case "WITHDRAWAL":
+      case "TRANSFER_OUT":
+      case "PAYOUT":
         return <ArrowUpRight className="h-4 w-4 text-red-500" />;
       default:
         return <ArrowLeftRight className="h-4 w-4 text-blue-500" />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -122,8 +171,12 @@ export default function SuperAdminTransactionsPage() {
             Monitor and manage platform transactions
           </p>
         </div>
-        <Button variant="outline">
-          <Download className="mr-2 h-4 w-4" />
+        <Button variant="outline" onClick={handleExport} disabled={exporting}>
+          {exporting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
           Export
         </Button>
       </div>
@@ -131,26 +184,26 @@ export default function SuperAdminTransactionsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Volume (24h)</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Volume</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$125,430</div>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalVolume)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Transactions (24h)</CardTitle>
+            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
+            <div className="text-2xl font-bold">{stats.transactionCount.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Fees (24h)</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$2,450</div>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalFees)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -158,7 +211,7 @@ export default function SuperAdminTransactionsPage() {
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">23</div>
+            <div className="text-2xl font-bold">{stats.pendingCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -185,7 +238,8 @@ export default function SuperAdminTransactionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="TRANSFER">Transfer</SelectItem>
+                <SelectItem value="TRANSFER_IN">Transfer In</SelectItem>
+                <SelectItem value="TRANSFER_OUT">Transfer Out</SelectItem>
                 <SelectItem value="DEPOSIT">Deposit</SelectItem>
                 <SelectItem value="WITHDRAWAL">Withdrawal</SelectItem>
                 <SelectItem value="PAYMENT">Payment</SelectItem>
@@ -216,44 +270,147 @@ export default function SuperAdminTransactionsPage() {
                 <TableHead>Fee</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTransactions.map((txn) => (
-                <TableRow key={txn.id}>
-                  <TableCell className="font-mono text-sm">{txn.id}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getTypeIcon(txn.type)}
-                      <span>{txn.type}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{txn.sender}</TableCell>
-                  <TableCell className="text-muted-foreground">{txn.receiver}</TableCell>
-                  <TableCell className="font-medium">{formatCurrency(txn.amount)}</TableCell>
-                  <TableCell className="text-muted-foreground">{formatCurrency(txn.fee)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        txn.status === "COMPLETED"
-                          ? "default"
-                          : txn.status === "PENDING"
-                          ? "secondary"
-                          : "destructive"
-                      }
-                    >
-                      {txn.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(txn.createdAt).toLocaleString()}
+              {filteredTransactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    No transactions found
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredTransactions.map((txn) => (
+                  <TableRow key={txn.id}>
+                    <TableCell className="font-mono text-sm">{txn.referenceId}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getTypeIcon(txn.type)}
+                        <span>{txn.type.replace("_", " ")}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {txn.sender?.email || "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {txn.receiver?.email || "-"}
+                    </TableCell>
+                    <TableCell className="font-medium">{formatCurrency(Number(txn.amount))}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatCurrency(Number(txn.fee || 0))}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          txn.status === "COMPLETED"
+                            ? "default"
+                            : txn.status === "PENDING"
+                            ? "secondary"
+                            : "destructive"
+                        }
+                      >
+                        {txn.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(txn.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewDetails(txn)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigator.clipboard.writeText(txn.referenceId)}>
+                            Copy Reference
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              Reference: {selectedTransaction?.referenceId}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTransaction && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Type</p>
+                  <p className="font-medium">{selectedTransaction.type.replace("_", " ")}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge
+                    variant={
+                      selectedTransaction.status === "COMPLETED"
+                        ? "default"
+                        : selectedTransaction.status === "PENDING"
+                        ? "secondary"
+                        : "destructive"
+                    }
+                  >
+                    {selectedTransaction.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="font-medium text-lg">{formatCurrency(Number(selectedTransaction.amount))}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Fee</p>
+                  <p className="font-medium">{formatCurrency(Number(selectedTransaction.fee || 0))}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Date</p>
+                  <p className="font-medium">{new Date(selectedTransaction.createdAt).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Currency</p>
+                  <p className="font-medium">{selectedTransaction.currency}</p>
+                </div>
+                {selectedTransaction.sender && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">From</p>
+                    <p className="font-medium">{selectedTransaction.sender.displayName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedTransaction.sender.email}</p>
+                  </div>
+                )}
+                {selectedTransaction.receiver && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">To</p>
+                    <p className="font-medium">{selectedTransaction.receiver.displayName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedTransaction.receiver.email}</p>
+                  </div>
+                )}
+                {selectedTransaction.description && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Description</p>
+                    <p className="font-medium">{selectedTransaction.description}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

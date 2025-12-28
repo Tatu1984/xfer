@@ -11,6 +11,9 @@ import {
   MoreHorizontal,
   RefreshCw,
   Loader2,
+  Eye,
+  FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +24,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -29,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { DataTable } from "@/components/dashboard/data-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface Transaction {
   id: string;
@@ -74,7 +85,11 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   PROCESSING: { label: "Processing", color: "bg-blue-100 text-blue-800" },
 };
 
-function getColumns(): ColumnDef<Transaction>[] {
+function getColumns(
+  onViewDetails: (tx: Transaction) => void,
+  onDownloadReceipt: (tx: Transaction) => void,
+  onReportIssue: (tx: Transaction) => void
+): ColumnDef<Transaction>[] {
   return [
     {
       accessorKey: "createdAt",
@@ -214,9 +229,18 @@ function getColumns(): ColumnDef<Transaction>[] {
               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(transaction.referenceId)}>
                 Copy Reference
               </DropdownMenuItem>
-              <DropdownMenuItem>View Details</DropdownMenuItem>
-              <DropdownMenuItem>Download Receipt</DropdownMenuItem>
-              <DropdownMenuItem>Report Issue</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onViewDetails(transaction)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDownloadReceipt(transaction)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Download Receipt
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onReportIssue(transaction)}>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Report Issue
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -232,6 +256,9 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const fetchTransactions = async () => {
     setLoading(true);
@@ -264,6 +291,43 @@ export default function TransactionsPage() {
     fetchTransactions();
   }, [typeFilter, statusFilter, pagination.page]);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await fetch("/api/exports?type=transactions&format=csv");
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `transactions-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Export downloaded successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export transactions");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleViewDetails = (tx: Transaction) => {
+    setSelectedTransaction(tx);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleDownloadReceipt = async (tx: Transaction) => {
+    toast.success(`Receipt for ${tx.referenceId} - Feature coming soon`);
+  };
+
+  const handleReportIssue = (tx: Transaction) => {
+    window.location.href = `/dashboard/disputes/new?transactionId=${tx.id}`;
+  };
+
   const totalIncoming = transactions
     .filter((tx) => (typeConfig[tx.type]?.isPositive) && tx.status === "COMPLETED")
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -272,7 +336,7 @@ export default function TransactionsPage() {
     .filter((tx) => !(typeConfig[tx.type]?.isPositive) && tx.status === "COMPLETED")
     .reduce((sum, tx) => sum + tx.amount, 0);
 
-  const columns = getColumns();
+  const columns = getColumns(handleViewDetails, handleDownloadReceipt, handleReportIssue);
 
   if (loading && transactions.length === 0) {
     return (
@@ -305,8 +369,12 @@ export default function TransactionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            {exporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
             Export
           </Button>
           <Button variant="outline" onClick={fetchTransactions} disabled={loading}>
@@ -400,6 +468,87 @@ export default function TransactionsPage() {
         searchKey="description"
         searchPlaceholder="Search transactions..."
       />
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              Reference: {selectedTransaction?.referenceId}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTransaction && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Type</p>
+                  <p className="font-medium">{typeConfig[selectedTransaction.type]?.label || selectedTransaction.type}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge className={statusConfig[selectedTransaction.status]?.color}>
+                    {statusConfig[selectedTransaction.status]?.label || selectedTransaction.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="font-medium text-lg">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: selectedTransaction.currency,
+                    }).format(selectedTransaction.amount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Fee</p>
+                  <p className="font-medium">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: selectedTransaction.currency,
+                    }).format(selectedTransaction.fee)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Net Amount</p>
+                  <p className="font-medium">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: selectedTransaction.currency,
+                    }).format(selectedTransaction.netAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Date</p>
+                  <p className="font-medium">
+                    {new Date(selectedTransaction.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                {selectedTransaction.sender && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">From</p>
+                    <p className="font-medium">{selectedTransaction.sender.displayName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedTransaction.sender.email}</p>
+                  </div>
+                )}
+                {selectedTransaction.receiver && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">To</p>
+                    <p className="font-medium">{selectedTransaction.receiver.displayName}</p>
+                    <p className="text-sm text-muted-foreground">{selectedTransaction.receiver.email}</p>
+                  </div>
+                )}
+                {selectedTransaction.description && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Description</p>
+                    <p className="font-medium">{selectedTransaction.description}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
