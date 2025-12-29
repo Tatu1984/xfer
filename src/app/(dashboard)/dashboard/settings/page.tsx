@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,12 @@ export default function UserSettingsPage() {
     newPassword: "",
     confirmPassword: "",
   });
+
+  // Photo upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -163,6 +169,79 @@ export default function UserSettingsPage() {
     saveSection("security", settings.security);
   };
 
+  // Photo upload handler (sandbox)
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Error",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "File size must be less than 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      // Sandbox: simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Create local preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      toast({
+        title: "Success",
+        description: "Photo uploaded successfully!",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to upload photo",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  // Sign out all sessions (sandbox)
+  const handleSignOutAllSessions = async () => {
+    setSigningOut(true);
+    try {
+      // Sandbox: simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // In production: POST /api/auth/sessions/revoke-all
+      toast({
+        title: "Success",
+        description: "All other sessions have been signed out",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to sign out other sessions",
+        variant: "destructive",
+      });
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -224,12 +303,28 @@ export default function UserSettingsPage() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src={session?.user?.image || undefined} />
+                  <AvatarImage src={avatarPreview || session?.user?.image || undefined} />
                   <AvatarFallback className="text-lg">{userInitials}</AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm">
-                    <Upload className="mr-2 h-4 w-4" />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                  >
+                    {uploadingPhoto ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
                     Upload Photo
                   </Button>
                   <p className="text-xs text-muted-foreground">
@@ -609,7 +704,13 @@ export default function UserSettingsPage() {
                   <span className="text-sm text-green-500">Active now</span>
                 </div>
               </div>
-              <Button variant="outline" className="text-destructive">
+              <Button
+                variant="outline"
+                className="text-destructive"
+                onClick={handleSignOutAllSessions}
+                disabled={signingOut}
+              >
+                {signingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign Out All Other Sessions
               </Button>
             </CardContent>

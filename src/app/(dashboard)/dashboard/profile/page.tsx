@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   User,
   Mail,
@@ -14,7 +14,15 @@ import {
   AlertCircle,
   Camera,
   Save,
+  Upload,
 } from "lucide-react";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,6 +39,14 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface UserProfile {
   id: string;
@@ -94,6 +110,19 @@ export default function ProfilePage() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [marketingEmails, setMarketingEmails] = useState(false);
+
+  // Dialog states
+  const [emailVerifyOpen, setEmailVerifyOpen] = useState(false);
+  const [phoneVerifyOpen, setPhoneVerifyOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProfile = async () => {
     try {
@@ -199,6 +228,136 @@ export default function ProfilePage() {
     }
   };
 
+  // Avatar upload handler (sandbox)
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be less than 5MB");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Sandbox: simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // In production: would upload to cloud storage and update profile
+      // const formData = new FormData();
+      // formData.append("avatar", file);
+      // await fetch("/api/profile/avatar", { method: "POST", body: formData });
+
+      toast.success("Avatar updated successfully!");
+      // Create local preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (profile) {
+          setProfile({ ...profile, avatarUrl: reader.result as string });
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast.error("Failed to upload avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // Send verification code (sandbox)
+  const handleSendVerificationCode = async (type: "email" | "phone") => {
+    setVerifying(true);
+    try {
+      // Sandbox: simulate sending code
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // In production: POST /api/auth/send-verification
+      setCodeSent(true);
+      toast.success(`Verification code sent to your ${type}!`);
+      toast.info("Sandbox: Use code 123456 to verify");
+    } catch {
+      toast.error(`Failed to send ${type} verification code`);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Verify code (sandbox)
+  const handleVerifyCode = async (type: "email" | "phone") => {
+    if (verifyCode.length !== 6) {
+      toast.error("Please enter a 6-digit code");
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      // Sandbox: simulate verification
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Sandbox: accept 123456 as valid code
+      if (verifyCode === "123456") {
+        toast.success(`${type === "email" ? "Email" : "Phone"} verified successfully!`);
+        if (profile) {
+          setProfile({
+            ...profile,
+            emailVerified: type === "email" ? true : profile.emailVerified,
+            phoneVerified: type === "phone" ? true : profile.phoneVerified,
+          });
+        }
+        if (type === "email") setEmailVerifyOpen(false);
+        else setPhoneVerifyOpen(false);
+        setVerifyCode("");
+        setCodeSent(false);
+      } else {
+        toast.error("Invalid verification code. Try 123456 in sandbox mode.");
+      }
+    } catch {
+      toast.error("Verification failed");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Change password (sandbox)
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Please fill in all password fields");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      // Sandbox: simulate password change
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // In production: POST /api/auth/change-password
+      toast.success("Password changed successfully!");
+      setPasswordOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      toast.error("Failed to change password");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -263,12 +422,25 @@ export default function ProfilePage() {
                 {profile.avatarUrl && <AvatarImage src={profile.avatarUrl} />}
                 <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
               </Avatar>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+              />
               <Button
                 size="icon"
                 variant="secondary"
                 className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
               >
-                <Camera className="h-4 w-4" />
+                {uploadingAvatar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Camera className="h-4 w-4" />
+                )}
               </Button>
             </div>
             <div className="flex-1">
@@ -459,7 +631,7 @@ export default function ProfilePage() {
                     Verified
                   </Badge>
                 ) : (
-                  <Button variant="outline" size="sm">Verify</Button>
+                  <Button variant="outline" size="sm" onClick={() => setEmailVerifyOpen(true)}>Verify</Button>
                 )}
               </div>
               <Separator />
@@ -476,7 +648,7 @@ export default function ProfilePage() {
                     Verified
                   </Badge>
                 ) : (
-                  <Button variant="outline" size="sm">Verify</Button>
+                  <Button variant="outline" size="sm" onClick={() => setPhoneVerifyOpen(true)}>Verify</Button>
                 )}
               </div>
               <Separator />
@@ -487,7 +659,7 @@ export default function ProfilePage() {
                     Update your password regularly for security
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => setPasswordOpen(true)}>
                   <Key className="mr-2 h-4 w-4" />
                   Change
                 </Button>
@@ -575,6 +747,208 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Email Verification Dialog */}
+      <Dialog open={emailVerifyOpen} onOpenChange={(open) => {
+        setEmailVerifyOpen(open);
+        if (!open) {
+          setVerifyCode("");
+          setCodeSent(false);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify Your Email</DialogTitle>
+            <DialogDescription>
+              We'll send a verification code to {profile.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!codeSent ? (
+              <Button
+                className="w-full"
+                onClick={() => handleSendVerificationCode("email")}
+                disabled={verifying}
+              >
+                {verifying ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="mr-2 h-4 w-4" />
+                )}
+                Send Verification Code
+              </Button>
+            ) : (
+              <>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={verifyCode}
+                    onChange={(value) => setVerifyCode(value)}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                    </InputOTPGroup>
+                    <InputOTPSeparator />
+                    <InputOTPGroup>
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Enter the 6-digit code sent to your email
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailVerifyOpen(false)}>
+              Cancel
+            </Button>
+            {codeSent && (
+              <Button onClick={() => handleVerifyCode("email")} disabled={verifying}>
+                {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Verify
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Phone Verification Dialog */}
+      <Dialog open={phoneVerifyOpen} onOpenChange={(open) => {
+        setPhoneVerifyOpen(open);
+        if (!open) {
+          setVerifyCode("");
+          setCodeSent(false);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify Your Phone</DialogTitle>
+            <DialogDescription>
+              We'll send a verification code to {profile.phone || "your phone number"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!codeSent ? (
+              <Button
+                className="w-full"
+                onClick={() => handleSendVerificationCode("phone")}
+                disabled={verifying || !profile.phone}
+              >
+                {verifying ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Phone className="mr-2 h-4 w-4" />
+                )}
+                Send Verification Code
+              </Button>
+            ) : (
+              <>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={verifyCode}
+                    onChange={(value) => setVerifyCode(value)}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                    </InputOTPGroup>
+                    <InputOTPSeparator />
+                    <InputOTPGroup>
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Enter the 6-digit code sent to your phone
+                </p>
+              </>
+            )}
+            {!profile.phone && (
+              <p className="text-sm text-destructive text-center">
+                Please add a phone number first in your profile
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPhoneVerifyOpen(false)}>
+              Cancel
+            </Button>
+            {codeSent && (
+              <Button onClick={() => handleVerifyCode("phone")} disabled={verifying}>
+                {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Verify
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={passwordOpen} onOpenChange={(open) => {
+        setPasswordOpen(open);
+        if (!open) {
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new one
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Current Password</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>New Password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Confirm New Password</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleChangePassword} disabled={verifying}>
+              {verifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Change Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

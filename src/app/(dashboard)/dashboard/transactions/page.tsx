@@ -321,7 +321,69 @@ export default function TransactionsPage() {
   };
 
   const handleDownloadReceipt = async (tx: Transaction) => {
-    toast.success(`Receipt for ${tx.referenceId} - Feature coming soon`);
+    try {
+      // Generate a simple text receipt (sandbox)
+      const typeLabel = typeConfig[tx.type]?.label || tx.type;
+      const statusLabel = statusConfig[tx.status]?.label || tx.status;
+      const dateStr = new Date(tx.createdAt).toLocaleString();
+      const amountStr = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: tx.currency,
+      }).format(tx.amount);
+      const feeStr = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: tx.currency,
+      }).format(tx.fee);
+      const netStr = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: tx.currency,
+      }).format(tx.netAmount);
+
+      const receiptContent = `
+=====================================
+          XFER PAYMENT RECEIPT
+=====================================
+
+Reference ID: ${tx.referenceId}
+Date: ${dateStr}
+
+Transaction Type: ${typeLabel}
+Status: ${statusLabel}
+
+-------------------------------------
+TRANSACTION DETAILS
+-------------------------------------
+Amount: ${amountStr}
+Fee: ${feeStr}
+Net Amount: ${netStr}
+
+${tx.sender ? `From: ${tx.sender.displayName} (${tx.sender.email})` : ""}
+${tx.receiver ? `To: ${tx.receiver.displayName} (${tx.receiver.email})` : ""}
+
+${tx.description ? `Description: ${tx.description}` : ""}
+
+-------------------------------------
+This is an official receipt from Xfer.
+For questions, contact support@xfer.com
+=====================================
+`;
+
+      // Create and download the file
+      const blob = new Blob([receiptContent], { type: "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `receipt-${tx.referenceId}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Receipt downloaded successfully");
+    } catch (error) {
+      console.error("Failed to download receipt:", error);
+      toast.error("Failed to download receipt");
+    }
   };
 
   const handleReportIssue = (tx: Transaction) => {

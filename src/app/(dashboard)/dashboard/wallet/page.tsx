@@ -37,6 +37,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import Link from "next/link";
 
 interface WalletData {
@@ -105,6 +108,13 @@ export default function WalletPage() {
   const [newCurrency, setNewCurrency] = useState("");
   const [addingCurrency, setAddingCurrency] = useState(false);
 
+  // Request money dialog state
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestEmail, setRequestEmail] = useState("");
+  const [requestAmount, setRequestAmount] = useState("");
+  const [requestNote, setRequestNote] = useState("");
+  const [requesting, setRequesting] = useState(false);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -161,6 +171,42 @@ export default function WalletPage() {
 
   const existingCurrencies = wallets.map(w => w.currency);
   const addableCurrencies = availableCurrencies.filter(c => !existingCurrencies.includes(c));
+
+  // Request money handler (sandbox)
+  const handleRequestMoney = async () => {
+    if (!requestEmail || !requestAmount) {
+      toast.error("Please enter email and amount");
+      return;
+    }
+
+    const amount = parseFloat(requestAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (!requestEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setRequesting(true);
+    try {
+      // Sandbox: simulate sending request
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // In production: POST /api/payments/request
+      toast.success(`Payment request of ${formatCurrency(amount, "USD")} sent to ${requestEmail}`);
+      setRequestOpen(false);
+      setRequestEmail("");
+      setRequestAmount("");
+      setRequestNote("");
+    } catch {
+      toast.error("Failed to send payment request");
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -256,7 +302,7 @@ export default function WalletPage() {
                 Send
               </Link>
             </Button>
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={() => setRequestOpen(true)}>
               <ArrowDownLeft className="mr-2 h-4 w-4" />
               Request
             </Button>
@@ -469,6 +515,64 @@ export default function WalletPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Request Money Dialog */}
+      <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Money</DialogTitle>
+            <DialogDescription>
+              Send a payment request to someone
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Recipient Email</Label>
+              <Input
+                type="email"
+                placeholder="name@example.com"
+                value={requestEmail}
+                onChange={(e) => setRequestEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Amount (USD)</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={requestAmount}
+                onChange={(e) => setRequestAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Note (optional)</Label>
+              <Textarea
+                placeholder="What is this request for?"
+                value={requestNote}
+                onChange={(e) => setRequestNote(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRequestMoney} disabled={requesting}>
+              {requesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

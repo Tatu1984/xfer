@@ -61,6 +61,12 @@ interface TransactionsResponse {
   };
 }
 
+interface ProfileData {
+  kycStatus: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+}
+
 function formatCurrency(amount: number, currency: string = "USD"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -80,15 +86,17 @@ function formatTimeAgo(date: string): string {
 export default function UserDashboard() {
   const [walletData, setWalletData] = useState<WalletResponse | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [walletRes, txRes] = await Promise.all([
+        const [walletRes, txRes, profileRes] = await Promise.all([
           fetch("/api/wallet"),
           fetch("/api/transactions?limit=5"),
+          fetch("/api/profile"),
         ]);
 
         if (!walletRes.ok || !txRes.ok) {
@@ -102,6 +110,11 @@ export default function UserDashboard() {
 
         setWalletData(walletResult);
         setTransactions(txResult.transactions);
+
+        if (profileRes.ok) {
+          const profileResult = await profileRes.json();
+          setProfileData(profileResult.profile);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
@@ -447,70 +460,125 @@ export default function UserDashboard() {
       </div>
 
       {/* KYC Progress - Show if not fully verified */}
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="text-lg">Complete Your Profile</CardTitle>
-          <CardDescription>
-            Verify your identity to unlock all features
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Progress value={66} className="h-2" />
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                  <svg
-                    className="h-4 w-4 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+      {profileData && profileData.kycStatus !== "APPROVED" && (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-lg">Complete Your Profile</CardTitle>
+            <CardDescription>
+              Verify your identity to unlock all features
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Progress
+                value={
+                  profileData.emailVerified && profileData.phoneVerified && profileData.kycStatus === "PENDING"
+                    ? 66
+                    : profileData.emailVerified && profileData.phoneVerified
+                    ? 50
+                    : profileData.emailVerified
+                    ? 25
+                    : 0
+                }
+                className="h-2"
+              />
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="flex items-center gap-2">
+                  <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                    profileData.emailVerified ? "bg-green-500" : "bg-muted"
+                  }`}>
+                    {profileData.emailVerified ? (
+                      <svg
+                        className="h-4 w-4 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      <span className="text-xs font-medium">1</span>
+                    )}
+                  </div>
+                  <span className={`text-sm ${profileData.emailVerified ? "" : "text-muted-foreground"}`}>
+                    Email {profileData.emailVerified ? "Verified" : "Verification"}
+                  </span>
                 </div>
-                <span className="text-sm">Email Verified</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                  <svg
-                    className="h-4 w-4 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                <div className="flex items-center gap-2">
+                  <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                    profileData.phoneVerified ? "bg-green-500" : "bg-muted"
+                  }`}>
+                    {profileData.phoneVerified ? (
+                      <svg
+                        className="h-4 w-4 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      <span className="text-xs font-medium">2</span>
+                    )}
+                  </div>
+                  <span className={`text-sm ${profileData.phoneVerified ? "" : "text-muted-foreground"}`}>
+                    Phone {profileData.phoneVerified ? "Verified" : "Verification"}
+                  </span>
                 </div>
-                <span className="text-sm">ID Verified</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-xs font-medium">3</span>
+                <div className="flex items-center gap-2">
+                  <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                    profileData.kycStatus === "APPROVED" ? "bg-green-500" :
+                    profileData.kycStatus === "PENDING" ? "bg-yellow-500" : "bg-muted"
+                  }`}>
+                    {profileData.kycStatus === "APPROVED" ? (
+                      <svg
+                        className="h-4 w-4 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : profileData.kycStatus === "PENDING" ? (
+                      <Loader2 className="h-3 w-3 text-white animate-spin" />
+                    ) : (
+                      <span className="text-xs font-medium">3</span>
+                    )}
+                  </div>
+                  <span className={`text-sm ${
+                    profileData.kycStatus === "APPROVED" ? "" :
+                    profileData.kycStatus === "PENDING" ? "text-yellow-600" : "text-muted-foreground"
+                  }`}>
+                    {profileData.kycStatus === "APPROVED" ? "ID Verified" :
+                     profileData.kycStatus === "PENDING" ? "ID Pending Review" :
+                     profileData.kycStatus === "REJECTED" ? "ID Rejected" : "ID Verification"}
+                  </span>
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  Address Verification
-                </span>
               </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/profile">
+                  {profileData.kycStatus === "PENDING" ? "Check Status" : "Continue Verification"}
+                </Link>
+              </Button>
             </div>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/settings">
-                Continue Verification
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

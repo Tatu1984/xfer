@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Accordion,
   AccordionContent,
@@ -21,6 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   HelpCircle,
   Search,
   MessageSquare,
@@ -31,7 +37,11 @@ import {
   Shield,
   Send,
   ExternalLink,
+  Loader2,
+  Bot,
+  User,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const faqItems = [
   {
@@ -87,8 +97,84 @@ const faqItems = [
   },
 ];
 
+// Sandbox chat responses
+const chatResponses: Record<string, string> = {
+  "hello": "Hello! Welcome to Xfer Support. How can I help you today?",
+  "hi": "Hi there! I'm here to help. What can I assist you with?",
+  "help": "I can help you with payments, account issues, security questions, and more. What would you like to know?",
+  "payment": "For payment issues, I can help with: sending money, receiving money, payment methods, and transaction status. What specific issue are you facing?",
+  "send money": "To send money: 1) Go to Dashboard, 2) Click 'Send Money', 3) Enter recipient's email, 4) Enter amount, 5) Click Send. Is there anything else?",
+  "fee": "Our fees: Personal transfers from balance are FREE. Credit card payments have a 2.9% + $0.30 fee. Business transactions may have additional fees.",
+  "verify": "To verify your account: Go to Settings > Security > Verify Identity. You'll need a government ID and it takes 1-2 business days.",
+  "security": "For security concerns, I recommend: 1) Enable 2FA, 2) Use a strong password, 3) Never share your login details. Would you like me to guide you through any of these?",
+  "password": "To change your password: Go to Settings > Security > Change Password. Make sure to use a strong, unique password.",
+  "default": "I understand you need help with that. For complex issues, I recommend using our email support or calling 1-800-XFER-HELP. Is there anything else I can help with?",
+};
+
 export default function HelpCenterPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ text: string; isBot: boolean }[]>([
+    { text: "Hello! Welcome to Xfer Support. How can I help you today?", isBot: true },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleSendChat = () => {
+    if (!chatInput.trim()) return;
+
+    const userMessage = chatInput.toLowerCase().trim();
+    setChatMessages(prev => [...prev, { text: chatInput, isBot: false }]);
+    setChatInput("");
+
+    // Simulate bot response
+    setTimeout(() => {
+      let response = chatResponses.default;
+      for (const [key, value] of Object.entries(chatResponses)) {
+        if (userMessage.includes(key)) {
+          response = value;
+          break;
+        }
+      }
+      setChatMessages(prev => [...prev, { text: response, isBot: true }]);
+    }, 500);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailSubject || !emailMessage.trim()) {
+      toast.error("Please select a subject and enter a message");
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      // Sandbox: simulate email sending
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // In production, this would call: POST /api/support/email
+      toast.success("Message sent! We'll respond within 24 hours.");
+      setEmailSubject("");
+      setEmailMessage("");
+    } catch (error) {
+      toast.error("Failed to send message. Please try again.");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const openResource = (resource: string) => {
+    const urls: Record<string, string> = {
+      "user-guide": "/docs/user-guide",
+      "security": "/docs/security",
+      "api": "/docs/api",
+    };
+
+    // Sandbox: show toast for external resources
+    toast.success(`Opening ${resource}...`);
+    // In production: window.open(urls[resource], "_blank");
+  };
 
   return (
     <div className="space-y-6">
@@ -116,28 +202,28 @@ export default function HelpCenterPage() {
 
       {/* Quick Links */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="cursor-pointer hover:border-primary transition-colors">
+        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setChatOpen(true)}>
           <CardContent className="pt-6 text-center">
             <CreditCard className="h-8 w-8 mx-auto mb-2 text-primary" />
             <div className="font-medium">Payments</div>
             <p className="text-sm text-muted-foreground">Send & receive money</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary transition-colors">
+        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setChatOpen(true)}>
           <CardContent className="pt-6 text-center">
             <Shield className="h-8 w-8 mx-auto mb-2 text-primary" />
             <div className="font-medium">Security</div>
             <p className="text-sm text-muted-foreground">Protect your account</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary transition-colors">
+        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setChatOpen(true)}>
           <CardContent className="pt-6 text-center">
             <FileText className="h-8 w-8 mx-auto mb-2 text-primary" />
             <div className="font-medium">Account</div>
             <p className="text-sm text-muted-foreground">Manage settings</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary transition-colors">
+        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setChatOpen(true)}>
           <CardContent className="pt-6 text-center">
             <HelpCircle className="h-8 w-8 mx-auto mb-2 text-primary" />
             <div className="font-medium">General</div>
@@ -189,7 +275,7 @@ export default function HelpCenterPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 Available 24/7 for urgent issues
               </p>
-              <Button className="w-full">
+              <Button className="w-full" onClick={() => setChatOpen(true)}>
                 Start Chat
               </Button>
             </CardContent>
@@ -222,7 +308,7 @@ export default function HelpCenterPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="subject">Subject</Label>
-                <Select>
+                <Select value={emailSubject} onValueChange={setEmailSubject}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a topic" />
                   </SelectTrigger>
@@ -240,10 +326,16 @@ export default function HelpCenterPage() {
                   id="message"
                   placeholder="Describe your issue..."
                   rows={4}
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
                 />
               </div>
-              <Button className="w-full">
-                <Send className="mr-2 h-4 w-4" />
+              <Button className="w-full" onClick={handleSendEmail} disabled={sendingEmail}>
+                {sendingEmail ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
                 Send Message
               </Button>
             </CardContent>
@@ -254,17 +346,17 @@ export default function HelpCenterPage() {
               <CardTitle className="text-lg">Resources</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="ghost" className="w-full justify-start">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => openResource("user-guide")}>
                 <FileText className="mr-2 h-4 w-4" />
                 User Guide
                 <ExternalLink className="ml-auto h-4 w-4" />
               </Button>
-              <Button variant="ghost" className="w-full justify-start">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => openResource("security")}>
                 <Shield className="mr-2 h-4 w-4" />
                 Security Center
                 <ExternalLink className="ml-auto h-4 w-4" />
               </Button>
-              <Button variant="ghost" className="w-full justify-start">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => openResource("api")}>
                 <FileText className="mr-2 h-4 w-4" />
                 API Documentation
                 <ExternalLink className="ml-auto h-4 w-4" />
@@ -273,6 +365,57 @@ export default function HelpCenterPage() {
           </Card>
         </div>
       </div>
+
+      {/* Live Chat Dialog */}
+      <Dialog open={chatOpen} onOpenChange={setChatOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Live Support Chat
+            </DialogTitle>
+            <DialogDescription>
+              Chat with our AI assistant or wait for a human agent
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="h-[300px] overflow-y-auto border rounded-lg p-4 space-y-3">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-2 ${msg.isBot ? "" : "flex-row-reverse"}`}
+                >
+                  <div className={`p-1 rounded-full ${msg.isBot ? "bg-primary/10" : "bg-muted"}`}>
+                    {msg.isBot ? (
+                      <Bot className="h-4 w-4 text-primary" />
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div
+                    className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                      msg.isBot ? "bg-muted" : "bg-primary text-primary-foreground"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Type your message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+              />
+              <Button onClick={handleSendChat}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
